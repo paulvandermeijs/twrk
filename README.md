@@ -11,9 +11,9 @@ cargo install --path .
 ## Usage
 
 ```
-twrk                                    # pick a project; default layout
-twrk .                                  # use current dir, default layout
-twrk -l dev -n my-feature              # named session, "dev" layout
+twrk                                    # pick a project; default config group
+twrk .                                  # use current dir, default config group
+twrk -c dev -n my-feature              # named session, "dev" config group
 twrk ~/Projects/Site --worktree=false  # path outside workspace, no worktree
 twrk -x "ls -la"                       # run a command in the project, no tmux
 ```
@@ -26,14 +26,18 @@ Set `WORKSPACE_ROOT` (newline-separated, `~` allowed). Defaults to `~/Workspace`
 
 Place `.twrk.toml`, `.twrk.yaml`, or `.twrk.json` in the project (or any parent directory). Lower directories override higher ones.
 
+The top level is a map of named config groups. Pick one with `-c <name>` (default `default`). Each group can set `worktree` and a `layout` (a list of windows, each with `content`).
+
 ```yaml
-worktree: true
-layout:
-  default:
+default:
+  worktree: false
+  layout:
     - name: Project
       content:
         - { name: Shell, command: nu }
-  dev:
+dev:
+  worktree: true
+  layout:
     - name: Dev
       content:
         - { name: Claude, command: claude -r }

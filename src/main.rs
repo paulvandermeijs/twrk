@@ -36,7 +36,10 @@ fn real_main() -> Result<()> {
     };
 
     let cfg = config::load_for(&project_dir)?;
-    let want_worktree = args.worktree.or(cfg.worktree).unwrap_or(false);
+    let want_worktree = args
+        .worktree
+        .or_else(|| config::group_worktree(&cfg, &args.config))
+        .unwrap_or(false);
 
     let (session_cwd, worktree_name): (PathBuf, Option<String>) = if want_worktree {
         match git::repo_root(&project_dir) {
@@ -65,7 +68,7 @@ fn real_main() -> Result<()> {
     };
 
     if !tmux::session_exists(&session_name) {
-        let layout = config::resolve_layout(&cfg, &args.layout);
+        let layout = config::resolve_layout(&cfg, &args.config);
         let cmds = tmux::build_commands(&session_name, &session_cwd, &layout);
         tmux::run(&cmds)?;
     }

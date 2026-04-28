@@ -14,9 +14,9 @@ pub struct Args {
     #[arg(short = 'n', long)]
     pub name: Option<String>,
 
-    /// Layout id from the config file
-    #[arg(short = 'l', long, default_value = "default")]
-    pub layout: String,
+    /// Config group id from the config file
+    #[arg(short = 'c', long, default_value = "default")]
+    pub config: String,
 
     /// Run an arbitrary command in the project folder instead of tmux
     #[arg(short = 'x', long = "execute")]
@@ -32,7 +32,7 @@ mod tests {
     fn parses_path_only() {
         let a = Args::try_parse_from(["twrk", "."]).unwrap();
         assert_eq!(a.path.as_deref(), Some("."));
-        assert_eq!(a.layout, "default");
+        assert_eq!(a.config, "default");
         assert_eq!(a.worktree, None);
     }
 
@@ -45,9 +45,9 @@ mod tests {
     #[test]
     fn parses_full_form() {
         let a =
-            Args::try_parse_from(["twrk", ".", "-l", "dev", "-n", "feat", "-w", "true"]).unwrap();
+            Args::try_parse_from(["twrk", ".", "-c", "dev", "-n", "feat", "-w", "true"]).unwrap();
         assert_eq!(a.path.as_deref(), Some("."));
-        assert_eq!(a.layout, "dev");
+        assert_eq!(a.config, "dev");
         assert_eq!(a.name.as_deref(), Some("feat"));
         assert_eq!(a.worktree, Some(true));
     }

@@ -4,11 +4,14 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
+pub type Config = BTreeMap<String, Group>;
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
-pub struct Config {
+pub struct Group {
     pub worktree: Option<bool>,
-    pub layout: BTreeMap<String, Layout>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub layout: Option<Layout>,
 }
 
 pub type Layout = Vec<Window>;
@@ -55,7 +58,7 @@ pub fn load_for(project_dir: &Path) -> Result<Config> {
         }
         cur = dir.parent().map(Path::to_path_buf);
     }
-    chain.reverse(); // root-most first; project last (highest priority)
+    chain.reverse();
 
     let mut merged = serde_json::Value::Null;
     for file in chain {
@@ -72,10 +75,14 @@ pub fn load_for(project_dir: &Path) -> Result<Config> {
 
 #[must_use]
 pub fn resolve_layout(cfg: &Config, id: &str) -> Layout {
-    if let Some(found) = cfg.layout.get(id) {
-        return found.clone();
-    }
-    fallback_layout()
+    cfg.get(id)
+        .and_then(|g| g.layout.clone())
+        .unwrap_or_else(fallback_layout)
+}
+
+#[must_use]
+pub fn group_worktree(cfg: &Config, id: &str) -> Option<bool> {
+    cfg.get(id).and_then(|g| g.worktree)
 }
 
 fn fallback_layout() -> Layout {
@@ -133,14 +140,16 @@ mod tests {
 
     fn fixture_yaml() -> &'static str {
         r"
-worktree: true
-layout:
-  default:
+default:
+  worktree: false
+  layout:
     - name: Project
       content:
         - name: Nu shell
           command: nu
-  dev:
+dev:
+  worktree: true
+  layout:
     - name: Dev
       content:
         - name: Claude
@@ -168,42 +177,48 @@ layout:
     }
 
     fn expected() -> Config {
-        let mut layout = BTreeMap::new();
-        layout.insert(
+        let mut cfg = Config::new();
+        cfg.insert(
             "default".into(),
-            vec![Window {
-                name: Some("Project".into()),
-                split: Split::Cols,
-                content: vec![pane(Some("Nu shell"), "nu")],
-            }],
+            Group {
+                worktree: Some(false),
+                layout: Some(vec![Window {
+                    name: Some("Project".into()),
+                    split: Split::Cols,
+                    content: vec![pane(Some("Nu shell"), "nu")],
+                }]),
+            },
         );
-        layout.insert(
+        cfg.insert(
             "dev".into(),
-            vec![
-                Window {
-                    name: Some("Dev".into()),
-                    split: Split::Cols,
-                    content: vec![pane(Some("Claude"), "claude -r"), pane(Some("Editor"), "hx")],
-                },
-                Window {
-                    name: Some("Server".into()),
-                    split: Split::Cols,
-                    content: vec![pane(None, "npm run dev")],
-                },
-                Window {
-                    name: Some("Logs".into()),
-                    split: Split::Rows,
-                    content: vec![
-                        pane(Some("State"), "watch -n /var/logs/state.txt"),
-                        pane(Some("Events"), "tail -f /var/logs/my.log"),
-                    ],
-                },
-            ],
+            Group {
+                worktree: Some(true),
+                layout: Some(vec![
+                    Window {
+                        name: Some("Dev".into()),
+                        split: Split::Cols,
+                        content: vec![
+                            pane(Some("Claude"), "claude -r"),
+                            pane(Some("Editor"), "hx"),
+                        ],
+                    },
+                    Window {
+                        name: Some("Server".into()),
+                        split: Split::Cols,
+                        content: vec![pane(None, "npm run dev")],
+                    },
+                    Window {
+                        name: Some("Logs".into()),
+                        split: Split::Rows,
+                        content: vec![
+                            pane(Some("State"), "watch -n /var/logs/state.txt"),
+                            pane(Some("Events"), "tail -f /var/logs/my.log"),
+                        ],
+                    },
+                ]),
+            },
         );
-        Config {
-            worktree: Some(true),
-            layout,
-        }
+        cfg
     }
 
     #[test]
@@ -228,32 +243,37 @@ layout:
 
     #[test]
     fn split_defaults_to_cols() {
-        let yaml = "layout:\n  default:\n    - content:\n        - command: ls\n";
+        let yaml = "default:\n  layout:\n    - content:\n        - command: ls\n";
         let cfg: Config = serde_yml::from_str(yaml).unwrap();
-        assert_eq!(cfg.layout["default"][0].split, Split::Cols);
+        let layout = cfg["default"].layout.as_ref().unwrap();
+        assert_eq!(layout[0].split, Split::Cols);
     }
 
     #[test]
     fn deep_merge_overrides_scalars_and_merges_maps() {
-        let a = serde_json::json!({ "worktree": false, "layout": { "default": [1] } });
-        let b = serde_json::json!({ "worktree": true,  "layout": { "dev": [2] } });
+        let a = serde_json::json!({ "default": { "worktree": false } });
+        let b = serde_json::json!({ "default": { "worktree": true }, "dev": { "worktree": true } });
         let m = deep_merge(a, b);
         assert_eq!(
             m,
             serde_json::json!({
-                "worktree": true,
-                "layout": { "default": [1], "dev": [2] }
+                "default": { "worktree": true },
+                "dev": { "worktree": true }
             })
         );
     }
 
     #[test]
     fn deep_merge_arrays_overwrite() {
-        let a = serde_json::json!({ "layout": { "default": [{"name": "old"}] } });
-        let b = serde_json::json!({ "layout": { "default": [{"name": "new"}] } });
+        let a = serde_json::json!({
+            "default": { "layout": [{"name": "old", "content": []}] }
+        });
+        let b = serde_json::json!({
+            "default": { "layout": [{"name": "new", "content": []}] }
+        });
         let m = deep_merge(a, b);
-        assert_eq!(m["layout"]["default"][0]["name"], "new");
-        assert_eq!(m["layout"]["default"].as_array().unwrap().len(), 1);
+        assert_eq!(m["default"]["layout"][0]["name"], "new");
+        assert_eq!(m["default"]["layout"].as_array().unwrap().len(), 1);
     }
 
     #[test]
@@ -265,46 +285,43 @@ layout:
 
         std::fs::write(
             parent.join(".twrk.yaml"),
-            "worktree: false\nlayout:\n  default:\n    - content:\n        - command: from-parent\n",
+            "default:\n  worktree: false\n  layout:\n    - content:\n        - command: from-parent\n",
         )
         .unwrap();
         std::fs::write(
             child.join(".twrk.yaml"),
-            "worktree: true\nlayout:\n  default:\n    - content:\n        - command: from-child\n",
+            "default:\n  worktree: true\n  layout:\n    - content:\n        - command: from-child\n",
         )
         .unwrap();
 
         let cfg = load_for(&child).unwrap();
-        assert_eq!(cfg.worktree, Some(true));
-        let Element::Pane(pane) = &cfg.layout["default"][0].content[0];
+        let group = &cfg["default"];
+        assert_eq!(group.worktree, Some(true));
+        let layout = group.layout.as_ref().unwrap();
+        let Element::Pane(pane) = &layout[0].content[0];
         assert_eq!(pane.command, "from-child");
     }
 
     #[test]
     fn load_for_prefers_toml_over_yaml_in_same_dir() {
         let root = tempfile::tempdir().unwrap();
-        // toml has no `worktree` key
-        std::fs::write(
-            root.path().join(".twrk.toml"),
-            "[layout]\n",
-        )
-        .unwrap();
+        // toml has only an empty "default" group with no `worktree`
+        std::fs::write(root.path().join(".twrk.toml"), "[default]\n").unwrap();
         // yaml would set worktree, but yaml should never be read
         std::fs::write(
             root.path().join(".twrk.yaml"),
-            "worktree: true\n",
+            "default:\n  worktree: true\n",
         )
         .unwrap();
         let cfg = load_for(root.path()).unwrap();
-        // If yaml had been read, this would be Some(true).
-        assert_eq!(cfg.worktree, None);
+        assert_eq!(cfg["default"].worktree, None);
     }
 
     #[test]
     fn load_for_returns_default_when_no_files() {
         let root = tempfile::tempdir().unwrap();
         let cfg = load_for(root.path()).unwrap();
-        assert_eq!(cfg, Config::default());
+        assert!(cfg.is_empty());
     }
 
     #[test]
@@ -320,5 +337,13 @@ layout:
         let layout = resolve_layout(&cfg, "default");
         assert_eq!(layout.len(), 1);
         assert!(layout[0].content.is_empty());
+    }
+
+    #[test]
+    fn group_worktree_returns_value_or_none() {
+        let cfg = expected();
+        assert_eq!(group_worktree(&cfg, "default"), Some(false));
+        assert_eq!(group_worktree(&cfg, "dev"), Some(true));
+        assert_eq!(group_worktree(&cfg, "missing"), None);
     }
 }
