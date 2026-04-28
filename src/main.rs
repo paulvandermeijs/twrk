@@ -1,3 +1,8 @@
+mod cli;
+
+use clap::Parser;
+
 fn main() {
-    println!("twrk");
+    let args = cli::Args::parse();
+    println!("{args:?}");
 }
