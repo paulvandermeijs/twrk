@@ -46,16 +46,6 @@ pub struct Pane {
     pub command: String,
 }
 
-impl Element {
-    // kept as a public accessor for nested-layout future
-    #[allow(dead_code)]
-    #[must_use]
-    pub fn as_pane(&self) -> &Pane {
-        let Self::Pane(p) = self;
-        p
-    }
-}
-
 pub fn load_for(project_dir: &Path) -> Result<Config> {
     let mut chain: Vec<PathBuf> = Vec::new();
     let mut cur = Some(project_dir.to_path_buf());
@@ -290,27 +280,28 @@ layout:
 
         let cfg = load_for(&child).unwrap();
         assert_eq!(cfg.worktree, Some(true));
-        assert_eq!(
-            cfg.layout["default"][0].content[0].as_pane().command,
-            "from-child"
-        );
+        let Element::Pane(pane) = &cfg.layout["default"][0].content[0];
+        assert_eq!(pane.command, "from-child");
     }
 
     #[test]
     fn load_for_prefers_toml_over_yaml_in_same_dir() {
         let root = tempfile::tempdir().unwrap();
+        // toml has no `worktree` key
         std::fs::write(
             root.path().join(".twrk.toml"),
-            "worktree = false\n",
+            "[layout]\n",
         )
         .unwrap();
+        // yaml would set worktree, but yaml should never be read
         std::fs::write(
             root.path().join(".twrk.yaml"),
             "worktree: true\n",
         )
         .unwrap();
         let cfg = load_for(root.path()).unwrap();
-        assert_eq!(cfg.worktree, Some(false));
+        // If yaml had been read, this would be Some(true).
+        assert_eq!(cfg.worktree, None);
     }
 
     #[test]

@@ -52,7 +52,7 @@ fn real_main() -> Result<()> {
         return run::run_in(&session_cwd, cmd);
     }
 
-    let folder_name = session_cwd
+    let folder_name = project_dir
         .file_name()
         .and_then(|s| s.to_str())
         .context("project path has no folder name")?;
