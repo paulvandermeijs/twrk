@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -49,6 +47,8 @@ pub struct Pane {
 }
 
 impl Element {
+    // kept as a public accessor for nested-layout future
+    #[allow(dead_code)]
     #[must_use]
     pub fn as_pane(&self) -> &Pane {
         let Self::Pane(p) = self;

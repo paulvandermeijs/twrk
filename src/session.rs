@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use rand::seq::SliceRandom;
 
 const ADJECTIVES: &[&str] = &[
