@@ -79,14 +79,10 @@ pub fn resolve_layout(cfg: &Config, id: &str) -> Layout {
 }
 
 fn fallback_layout() -> Layout {
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into());
     vec![Window {
         name: Some("main".into()),
         split: Split::Cols,
-        content: vec![Element::Pane(Pane {
-            name: None,
-            command: shell,
-        })],
+        content: vec![],
     }]
 }
 
@@ -323,6 +319,6 @@ layout:
         let cfg = Config::default();
         let layout = resolve_layout(&cfg, "default");
         assert_eq!(layout.len(), 1);
-        assert_eq!(layout[0].content.len(), 1);
+        assert!(layout[0].content.is_empty());
     }
 }
