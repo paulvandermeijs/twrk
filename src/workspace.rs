@@ -27,6 +27,7 @@ pub fn list_projects(roots: &[PathBuf]) -> Vec<PathBuf> {
             }
         }
     }
+    // Sort by basename so projects from multiple workspace roots interleave alphabetically.
     out.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
     out
 }
