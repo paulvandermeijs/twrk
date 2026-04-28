@@ -706,6 +706,7 @@ dependencies = [
  "anyhow",
  "clap",
  "cliclack",
+ "console",
  "dirs",
  "rand",
  "serde",
