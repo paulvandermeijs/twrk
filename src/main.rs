@@ -3,6 +3,7 @@ mod workspace;
 mod path;
 mod config;
 mod session;
+mod git;
 
 use clap::Parser;
 
