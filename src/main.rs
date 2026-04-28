@@ -6,6 +6,7 @@ mod session;
 mod git;
 mod tmux;
 mod run;
+mod picker;
 
 use clap::Parser;
 
