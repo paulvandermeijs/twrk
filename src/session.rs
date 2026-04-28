@@ -1,4 +1,4 @@
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 
 const ADJECTIVES: &[&str] = &[
     "brave", "calm", "eager", "fair", "gentle", "happy", "jolly", "kind", "lively", "merry",
@@ -11,7 +11,7 @@ const NOUNS: &[&str] = &[
 
 #[must_use]
 pub fn random_name() -> String {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let a = ADJECTIVES.choose(&mut rng).unwrap();
     let n = NOUNS.choose(&mut rng).unwrap();
     format!("{a}-{n}")
