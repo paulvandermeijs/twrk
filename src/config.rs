@@ -80,6 +80,26 @@ pub fn load_for(project_dir: &Path) -> Result<Config> {
     Ok(cfg)
 }
 
+#[must_use]
+pub fn resolve_layout(cfg: &Config, id: &str) -> Layout {
+    if let Some(found) = cfg.layout.get(id) {
+        return found.clone();
+    }
+    fallback_layout()
+}
+
+fn fallback_layout() -> Layout {
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into());
+    vec![Window {
+        name: Some("main".into()),
+        split: Split::Cols,
+        content: vec![Element::Pane(Pane {
+            name: None,
+            command: shell,
+        })],
+    }]
+}
+
 fn find_config_in(dir: &Path) -> Option<PathBuf> {
     for name in [".twrk.toml", ".twrk.yaml", ".twrk.yml", ".twrk.json"] {
         let candidate = dir.join(name);
@@ -298,5 +318,20 @@ layout:
         let root = tempfile::tempdir().unwrap();
         let cfg = load_for(root.path()).unwrap();
         assert_eq!(cfg, Config::default());
+    }
+
+    #[test]
+    fn resolve_layout_returns_named_layout() {
+        let cfg = expected();
+        let layout = resolve_layout(&cfg, "dev");
+        assert_eq!(layout.len(), 3);
+    }
+
+    #[test]
+    fn resolve_layout_falls_back_when_missing() {
+        let cfg = Config::default();
+        let layout = resolve_layout(&cfg, "default");
+        assert_eq!(layout.len(), 1);
+        assert_eq!(layout[0].content.len(), 1);
     }
 }
