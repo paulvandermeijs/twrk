@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -51,6 +53,71 @@ impl Element {
     pub fn as_pane(&self) -> &Pane {
         let Self::Pane(p) = self;
         p
+    }
+}
+
+pub fn load_for(project_dir: &Path) -> Result<Config> {
+    let mut chain: Vec<PathBuf> = Vec::new();
+    let mut cur = Some(project_dir.to_path_buf());
+    while let Some(dir) = cur {
+        if let Some(file) = find_config_in(&dir) {
+            chain.push(file);
+        }
+        cur = dir.parent().map(Path::to_path_buf);
+    }
+    chain.reverse(); // root-most first; project last (highest priority)
+
+    let mut merged = serde_json::Value::Null;
+    for file in chain {
+        let value = read_as_value(&file)
+            .with_context(|| format!("failed to read config {}", file.display()))?;
+        merged = deep_merge(merged, value);
+    }
+    if merged.is_null() {
+        return Ok(Config::default());
+    }
+    let cfg: Config = serde_json::from_value(merged).context("invalid merged config")?;
+    Ok(cfg)
+}
+
+fn find_config_in(dir: &Path) -> Option<PathBuf> {
+    for name in [".twrk.toml", ".twrk.yaml", ".twrk.yml", ".twrk.json"] {
+        let candidate = dir.join(name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+fn read_as_value(path: &Path) -> Result<serde_json::Value> {
+    let raw = std::fs::read_to_string(path)?;
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default();
+    Ok(match ext {
+        "toml" => toml::from_str(&raw)?,
+        "yaml" | "yml" => serde_yml::from_str(&raw)?,
+        "json" => serde_json::from_str(&raw)?,
+        other => anyhow::bail!("unknown config extension: {other}"),
+    })
+}
+
+fn deep_merge(base: serde_json::Value, overlay: serde_json::Value) -> serde_json::Value {
+    use serde_json::Value::Object;
+    match (base, overlay) {
+        (Object(mut a), Object(b)) => {
+            for (k, v) in b {
+                let merged = match a.remove(&k) {
+                    Some(existing) => deep_merge(existing, v),
+                    None => v,
+                };
+                a.insert(k, merged);
+            }
+            Object(a)
+        }
+        (_, overlay) => overlay,
     }
 }
 
@@ -158,5 +225,78 @@ layout:
         let yaml = "layout:\n  default:\n    - content:\n        - command: ls\n";
         let cfg: Config = serde_yml::from_str(yaml).unwrap();
         assert_eq!(cfg.layout["default"][0].split, Split::Cols);
+    }
+
+    #[test]
+    fn deep_merge_overrides_scalars_and_merges_maps() {
+        let a = serde_json::json!({ "worktree": false, "layout": { "default": [1] } });
+        let b = serde_json::json!({ "worktree": true,  "layout": { "dev": [2] } });
+        let m = deep_merge(a, b);
+        assert_eq!(
+            m,
+            serde_json::json!({
+                "worktree": true,
+                "layout": { "default": [1], "dev": [2] }
+            })
+        );
+    }
+
+    #[test]
+    fn deep_merge_arrays_overwrite() {
+        let a = serde_json::json!({ "layout": { "default": [{"name": "old"}] } });
+        let b = serde_json::json!({ "layout": { "default": [{"name": "new"}] } });
+        let m = deep_merge(a, b);
+        assert_eq!(m["layout"]["default"][0]["name"], "new");
+        assert_eq!(m["layout"]["default"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn load_for_walks_up_and_lower_wins() {
+        let root = tempfile::tempdir().unwrap();
+        let parent = root.path().join("parent");
+        let child = parent.join("child");
+        std::fs::create_dir_all(&child).unwrap();
+
+        std::fs::write(
+            parent.join(".twrk.yaml"),
+            "worktree: false\nlayout:\n  default:\n    - content:\n        - command: from-parent\n",
+        )
+        .unwrap();
+        std::fs::write(
+            child.join(".twrk.yaml"),
+            "worktree: true\nlayout:\n  default:\n    - content:\n        - command: from-child\n",
+        )
+        .unwrap();
+
+        let cfg = load_for(&child).unwrap();
+        assert_eq!(cfg.worktree, Some(true));
+        assert_eq!(
+            cfg.layout["default"][0].content[0].as_pane().command,
+            "from-child"
+        );
+    }
+
+    #[test]
+    fn load_for_prefers_toml_over_yaml_in_same_dir() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(
+            root.path().join(".twrk.toml"),
+            "worktree = false\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.path().join(".twrk.yaml"),
+            "worktree: true\n",
+        )
+        .unwrap();
+        let cfg = load_for(root.path()).unwrap();
+        assert_eq!(cfg.worktree, Some(false));
+    }
+
+    #[test]
+    fn load_for_returns_default_when_no_files() {
+        let root = tempfile::tempdir().unwrap();
+        let cfg = load_for(root.path()).unwrap();
+        assert_eq!(cfg, Config::default());
     }
 }
