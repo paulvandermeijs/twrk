@@ -2,6 +2,7 @@ mod cli;
 mod workspace;
 mod path;
 mod config;
+mod session;
 
 use clap::Parser;
 
