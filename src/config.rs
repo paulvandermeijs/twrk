@@ -22,7 +22,20 @@ pub struct Window {
     pub name: Option<String>,
     #[serde(default)]
     pub split: Split,
+    #[serde(
+        default,
+        deserialize_with = "null_as_default",
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub content: Vec<Element>,
+}
+
+fn null_as_default<'de, D, T>(d: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Default + Deserialize<'de>,
+{
+    Ok(Option::deserialize(d)?.unwrap_or_default())
 }
 
 /// A child of a `Window`. Today this is always a `Pane`. The enum is
@@ -337,6 +350,16 @@ dev:
         let layout = resolve_layout(&cfg, "default");
         assert_eq!(layout.len(), 1);
         assert!(layout[0].content.is_empty());
+    }
+
+    #[test]
+    fn null_content_deserialises_to_empty_vec() {
+        let yaml = "default:\n  layout:\n    - name: a\n    - name: b\n      content:\n";
+        let cfg: Config = serde_yml::from_str(yaml).unwrap();
+        let layout = cfg["default"].layout.as_ref().unwrap();
+        assert_eq!(layout.len(), 2);
+        assert!(layout[0].content.is_empty());
+        assert!(layout[1].content.is_empty());
     }
 
     #[test]
