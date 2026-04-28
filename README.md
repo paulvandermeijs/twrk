@@ -20,7 +20,7 @@ twrk -x "ls -la"                       # run a command in the project, no tmux
 
 ## Workspace roots
 
-Set `TWRK_WORKSPACE` (newline-separated, `~` allowed). Defaults to `~/Workspace`.
+Set `WORKSPACE_ROOT` (newline-separated, `~` allowed). Defaults to `~/Workspace`.
 
 ## Project config
 

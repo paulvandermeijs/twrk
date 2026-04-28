@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 
-const ENV_VAR: &str = "TWRK_WORKSPACE";
+const ENV_VAR: &str = "WORKSPACE_ROOT";
 
 pub fn roots() -> Result<Vec<PathBuf>> {
     if let Ok(value) = std::env::var(ENV_VAR) {
