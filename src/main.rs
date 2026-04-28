@@ -3,7 +3,6 @@ mod config;
 mod git;
 mod path;
 mod picker;
-mod run;
 mod session;
 mod tmux;
 mod workspace;
@@ -38,15 +37,19 @@ fn real_main() -> Result<()> {
     };
 
     let cfg = config::load_for(&project_dir)?;
-    let want_worktree = args
-        .worktree
-        .or_else(|| config::group_worktree(&cfg, &args.config))
-        .unwrap_or(false);
+    let (want_worktree, name_override) = match args.worktree.as_deref() {
+        Some("") => (true, None),
+        Some(name) => (true, Some(name.to_string())),
+        None => (
+            config::group_worktree(&cfg, &args.config).unwrap_or(false),
+            None,
+        ),
+    };
 
     let (session_cwd, worktree_name): (PathBuf, Option<String>) = if want_worktree {
         match git::repo_root(&project_dir) {
             Some(root) => {
-                let name = args.name.clone().unwrap_or_else(session::random_name);
+                let name = name_override.unwrap_or_else(session::random_name);
                 let path = git::ensure_worktree(&root, &name)?;
                 (path, Some(name))
             }
@@ -55,10 +58,6 @@ fn real_main() -> Result<()> {
     } else {
         (project_dir.clone(), None)
     };
-
-    if let Some(cmd) = args.command.as_deref() {
-        return run::run_in(&session_cwd, cmd);
-    }
 
     let folder_name = project_dir
         .file_name()

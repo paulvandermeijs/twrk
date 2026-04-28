@@ -6,21 +6,13 @@ pub struct Args {
     /// Project path (skips selection). Absolute, relative, or `.`.
     pub path: Option<String>,
 
-    /// Create a worktree (overrides config)
-    #[arg(short = 'w', long)]
-    pub worktree: Option<bool>,
-
-    /// Session name; appended to folder name. Random if omitted.
-    #[arg(short = 'n', long)]
-    pub name: Option<String>,
+    /// Create a worktree. Optional value sets the name; random if omitted.
+    #[arg(short = 'w', long, num_args = 0..=1, default_missing_value = "")]
+    pub worktree: Option<String>,
 
     /// Config group id from the config file
     #[arg(short = 'c', long, default_value = "default")]
     pub config: String,
-
-    /// Run an arbitrary command in the project folder instead of tmux
-    #[arg(short = 'x', long = "execute")]
-    pub command: Option<String>,
 }
 
 #[cfg(test)]
@@ -37,30 +29,22 @@ mod tests {
     }
 
     #[test]
-    fn parses_worktree_false() {
-        let a = Args::try_parse_from(["twrk", "-w", "false"]).unwrap();
-        assert_eq!(a.worktree, Some(false));
+    fn parses_worktree_flag_without_value() {
+        let a = Args::try_parse_from(["twrk", "-w"]).unwrap();
+        assert_eq!(a.worktree.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn parses_worktree_flag_with_name() {
+        let a = Args::try_parse_from(["twrk", "-w", "feat"]).unwrap();
+        assert_eq!(a.worktree.as_deref(), Some("feat"));
     }
 
     #[test]
     fn parses_full_form() {
-        let a =
-            Args::try_parse_from(["twrk", ".", "-c", "dev", "-n", "feat", "-w", "true"]).unwrap();
+        let a = Args::try_parse_from(["twrk", ".", "-c", "dev", "-w", "feat"]).unwrap();
         assert_eq!(a.path.as_deref(), Some("."));
         assert_eq!(a.config, "dev");
-        assert_eq!(a.name.as_deref(), Some("feat"));
-        assert_eq!(a.worktree, Some(true));
-    }
-
-    #[test]
-    fn parses_command_override() {
-        let a = Args::try_parse_from(["twrk", "-x", "ls -la"]).unwrap();
-        assert_eq!(a.command.as_deref(), Some("ls -la"));
-    }
-
-    #[test]
-    fn parses_command_long_form() {
-        let a = Args::try_parse_from(["twrk", "--execute", "pwd"]).unwrap();
-        assert_eq!(a.command.as_deref(), Some("pwd"));
+        assert_eq!(a.worktree.as_deref(), Some("feat"));
     }
 }
