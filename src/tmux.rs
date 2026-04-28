@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 
 use std::path::Path;
+use std::process::{Command, Stdio};
+
+use anyhow::{Context, Result, bail};
 
 use crate::config::{Element, Layout, Split, Window};
 
@@ -81,6 +84,51 @@ pub fn build_commands(session: &str, cwd: &Path, layout: &Layout) -> Vec<Vec<Str
     }
 
     cmds
+}
+
+#[must_use]
+pub fn session_exists(session: &str) -> bool {
+    Command::new("tmux")
+        .args(["has-session", "-t", &format!("={session}")])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+pub fn run(commands: &[Vec<String>]) -> Result<()> {
+    for cmd in commands {
+        let status = Command::new("tmux")
+            .args(cmd)
+            .status()
+            .with_context(|| format!("failed to spawn tmux {cmd:?}"))?;
+        if !status.success() {
+            bail!(
+                "tmux {} failed (exit {status})",
+                cmd.first().map_or("", String::as_str)
+            );
+        }
+    }
+    Ok(())
+}
+
+pub fn attach_or_switch(session: &str) -> Result<()> {
+    let inside = std::env::var("TMUX").is_ok();
+    let args: &[&str] = if inside {
+        &["switch-client", "-t"]
+    } else {
+        &["attach", "-t"]
+    };
+    let status = Command::new("tmux")
+        .args(args)
+        .arg(session)
+        .status()
+        .context("failed to spawn tmux attach/switch-client")?;
+    if !status.success() {
+        bail!("tmux failed to attach/switch (exit {status})");
+    }
+    Ok(())
 }
 
 fn split_flag(split: Split) -> &'static str {
