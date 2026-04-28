@@ -37,15 +37,18 @@ fn real_main() -> Result<()> {
 
     let cfg = config::load_for(&project_dir)?;
     let want_worktree = args.worktree.or(cfg.worktree).unwrap_or(false);
-    let name = args.name.clone().unwrap_or_else(session::random_name);
 
-    let session_cwd: PathBuf = if want_worktree {
+    let (session_cwd, worktree_name): (PathBuf, Option<String>) = if want_worktree {
         match git::repo_root(&project_dir) {
-            Some(root) => git::ensure_worktree(&root, &name)?,
-            None => project_dir.clone(),
+            Some(root) => {
+                let name = args.name.clone().unwrap_or_else(session::random_name);
+                let path = git::ensure_worktree(&root, &name)?;
+                (path, Some(name))
+            }
+            None => (project_dir.clone(), None),
         }
     } else {
-        project_dir.clone()
+        (project_dir.clone(), None)
     };
 
     if let Some(cmd) = args.command.as_deref() {
@@ -56,7 +59,10 @@ fn real_main() -> Result<()> {
         .file_name()
         .and_then(|s| s.to_str())
         .context("project path has no folder name")?;
-    let session_name = session::compose(folder_name, &name);
+    let session_name = match worktree_name.as_deref() {
+        Some(name) => session::compose(folder_name, name),
+        None => folder_name.to_string(),
+    };
 
     if !tmux::session_exists(&session_name) {
         let layout = config::resolve_layout(&cfg, &args.layout);
