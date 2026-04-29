@@ -1,5 +1,7 @@
 # twrk
 
+Pronounced "twerk". The name is a portmanteau of tmux and workspace/worktree — any resemblance to other words is, of course, purely coincidental.
+
 Open a project from your workspace in a tmux session with a configurable layout, optionally in a fresh git worktree.
 
 ## Install
@@ -25,9 +27,9 @@ Set `WORKSPACE_ROOT` (newline-separated, `~` allowed). Defaults to `~/Workspace`
 
 ## Project config
 
-Place `.twrk.toml`, `.twrk.yaml`, or `.twrk.json` in the project (or any parent directory). Lower directories override higher ones.
+Place a twrk-file (`.twrk.toml`, `.twrk.yaml`, or `.twrk.json`) in the project (or any parent directory). Lower directories override higher ones.
 
-The top level is a map of named config groups. Pick one with `-c <name>` (default `default`). Each group can set `worktree` and a `layout` (a list of windows, each with `content`).
+The top level of a twrk-file is a map of named config groups. Pick one with `-c <name>` (default `default`). Each group can set `worktree` and a `layout` (a list of windows, each with `content`).
 
 ```yaml
 default:
@@ -51,3 +53,5 @@ dev:
       content:
         - { command: "tail -f /var/log/app.log" }
 ```
+
+Happy twrk-ing!
