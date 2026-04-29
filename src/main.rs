@@ -42,11 +42,14 @@ fn real_main() -> Result<()> {
     let cfg = config::load_for(&project_dir)?;
 
     let picked_group = if in_picker_mode && args.config.is_none() {
-        let names: Vec<String> = cfg.keys().cloned().collect();
-        match names.len() {
-            0 => None,
-            1 => Some(names.into_iter().next().unwrap()),
-            _ => Some(prompts::pick_config(&names)?),
+        let mut names: Vec<String> = cfg.keys().cloned().collect();
+        if !names.iter().any(|n| n == "default") {
+            names.insert(0, "default".to_string());
+        }
+        if names.len() >= 2 {
+            Some(prompts::pick_config(&names)?)
+        } else {
+            None
         }
     } else {
         None
