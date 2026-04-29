@@ -17,19 +17,26 @@ use clap::Parser;
 
 fn main() -> ExitCode {
     let args = cli::Args::parse();
-    theme::install();
-    let _ = cliclack::intro(console::style(" twrk ").bold().black().on_color256(213));
+    let is_tty = console::user_attended_stderr();
     let in_picker_mode = args.path.is_none();
-    match real_main(args, in_picker_mode) {
+    if is_tty {
+        theme::install();
+        let _ = cliclack::intro(console::style(" twrk ").bold().black().on_color256(213));
+    }
+    match real_main(args, in_picker_mode, is_tty) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            let _ = cliclack::outro_cancel(format!("{e:#}"));
+            if is_tty {
+                let _ = cliclack::outro_cancel(format!("{e:#}"));
+            } else {
+                eprintln!("twrk: {e:#}");
+            }
             ExitCode::FAILURE
         }
     }
 }
 
-fn real_main(args: cli::Args, in_picker_mode: bool) -> Result<()> {
+fn real_main(args: cli::Args, in_picker_mode: bool, is_tty: bool) -> Result<()> {
     let project_dir = if let Some(p) = args.path.as_deref() {
         path::resolve(p)?
     } else {
@@ -38,7 +45,7 @@ fn real_main(args: cli::Args, in_picker_mode: bool) -> Result<()> {
         picker::pick(&projects)?
     };
 
-    if !in_picker_mode {
+    if !in_picker_mode && is_tty {
         prompts::show_project(&project_dir);
     }
 
@@ -60,7 +67,7 @@ fn real_main(args: cli::Args, in_picker_mode: bool) -> Result<()> {
     let active_group =
         prompts::resolve_group_name(args.config.as_deref(), picked_group.as_deref());
 
-    if !in_picker_mode {
+    if !in_picker_mode && is_tty {
         prompts::show_config(&active_group);
     }
 
@@ -90,7 +97,7 @@ fn real_main(args: cli::Args, in_picker_mode: bool) -> Result<()> {
             (project_dir.clone(), None, project_dir.clone())
         };
 
-    if !in_picker_mode {
+    if !in_picker_mode && is_tty {
         prompts::show_worktree(worktree_name.as_deref());
     }
 
@@ -103,7 +110,9 @@ fn real_main(args: cli::Args, in_picker_mode: bool) -> Result<()> {
         None => folder_name.to_string(),
     };
 
-    let _ = cliclack::outro(format!("Launching {session_name}..."));
+    if is_tty {
+        let _ = cliclack::outro(format!("Launching {session_name}..."));
+    }
 
     if !tmux::session_exists(&session_name) {
         let layout = config::resolve_layout(&cfg, &active_group);
