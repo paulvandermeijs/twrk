@@ -45,20 +45,16 @@ fn real_main() -> Result<()> {
         ),
     };
 
-    let (session_cwd, worktree_name): (PathBuf, Option<String>) = if want_worktree {
-        match git::repo_root(&project_dir) {
-            Some(root) => {
-                let name = name_override.unwrap_or_else(session::random_name);
-                let path = git::ensure_worktree(&root, &name)?;
-                (path, Some(name))
-            }
-            None => (project_dir.clone(), None),
-        }
-    } else {
-        (project_dir.clone(), None)
-    };
+    let (session_cwd, worktree_name, folder_source): (PathBuf, Option<String>, PathBuf) =
+        if want_worktree && let Some(root) = git::repo_root(&project_dir) {
+            let name = name_override.unwrap_or_else(session::random_name);
+            let path = git::ensure_worktree(&root, &name)?;
+            (path, Some(name), root)
+        } else {
+            (project_dir.clone(), None, project_dir.clone())
+        };
 
-    let folder_name = project_dir
+    let folder_name = folder_source
         .file_name()
         .and_then(|s| s.to_str())
         .context("project path has no folder name")?;

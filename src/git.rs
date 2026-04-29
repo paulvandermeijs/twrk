@@ -8,7 +8,7 @@ pub fn repo_root(path: &Path) -> Option<PathBuf> {
     let out = Command::new("git")
         .arg("-C")
         .arg(path)
-        .args(["rev-parse", "--show-toplevel"])
+        .args(["rev-parse", "--path-format=absolute", "--git-common-dir"])
         .stderr(Stdio::null())
         .output()
         .ok()?;
@@ -16,7 +16,8 @@ pub fn repo_root(path: &Path) -> Option<PathBuf> {
         return None;
     }
     let s = String::from_utf8(out.stdout).ok()?;
-    Some(PathBuf::from(s.trim()))
+    let common_dir = PathBuf::from(s.trim());
+    common_dir.parent().map(Path::to_path_buf)
 }
 
 pub fn ensure_worktree(repo_root: &Path, name: &str) -> Result<PathBuf> {
@@ -88,6 +89,18 @@ mod tests {
         let sub = dir.path().join("sub");
         std::fs::create_dir(&sub).unwrap();
         let root = repo_root(&sub).unwrap();
+        assert_eq!(
+            root.canonicalize().unwrap(),
+            dir.path().canonicalize().unwrap()
+        );
+    }
+
+    #[test]
+    fn repo_root_returns_main_repo_from_inside_a_worktree() {
+        let dir = tempdir().unwrap();
+        init_repo(dir.path());
+        let wt = ensure_worktree(dir.path(), "feat-y").unwrap();
+        let root = repo_root(&wt).expect("repo_root should resolve from inside a worktree");
         assert_eq!(
             root.canonicalize().unwrap(),
             dir.path().canonicalize().unwrap()
