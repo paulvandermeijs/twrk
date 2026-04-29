@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::{Context, Result};
 
 pub fn pick_config(group_names: &[String]) -> Result<String> {
@@ -30,6 +32,23 @@ pub fn pick_worktree(default: bool, placeholder_name: &str) -> Result<Option<Str
     } else {
         Ok(Some(typed))
     }
+}
+
+pub fn show_project(path: &Path) {
+    let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("?");
+    let _ = cliclack::log::step(format!("Project: {name}"));
+}
+
+pub fn show_config(group: &str) {
+    let _ = cliclack::log::step(format!("Config: {group}"));
+}
+
+pub fn show_worktree(name: Option<&str>) {
+    let label = match name {
+        Some(n) => format!("Worktree: {n}"),
+        None => "Worktree: none".to_string(),
+    };
+    let _ = cliclack::log::step(label);
 }
 
 #[must_use]
