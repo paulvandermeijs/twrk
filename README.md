@@ -21,12 +21,12 @@ cargo install --path .
 ## Usage
 
 ```
-twrk                          # pick a project; default config group
-twrk .                        # use current dir, default config group
-twrk -c dev                   # "dev" config group
+twrk                          # interactive: pick project, config group, worktree
+twrk .                        # use current dir, skip the picker
+twrk ~/Projects/Site          # use any absolute path (outside the workspace too)
+twrk -c dev                   # use the "dev" config group
 twrk -w                       # create a worktree with a random name
 twrk -w my-feature            # create a worktree named "my-feature"
-twrk ~/Projects/Site          # path outside workspace, no worktree
 ```
 
 ## Workspace roots
