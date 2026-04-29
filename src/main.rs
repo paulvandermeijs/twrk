@@ -93,7 +93,7 @@ fn real_main() -> Result<()> {
     };
 
     if in_picker_mode {
-        let _ = cliclack::outro(format!("Launching {session_name}"));
+        let _ = cliclack::outro(format!("Launching {session_name}..."));
     }
 
     if !tmux::session_exists(&session_name) {
