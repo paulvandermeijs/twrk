@@ -27,15 +27,20 @@ pub fn ensure_worktree(repo_root: &Path, name: &str) -> Result<PathBuf> {
     }
     std::fs::create_dir_all(target.parent().unwrap())
         .with_context(|| format!("could not create {}", target.parent().unwrap().display()))?;
-    let status = Command::new("git")
+    let output = Command::new("git")
         .arg("-C")
         .arg(repo_root)
         .args(["worktree", "add", "-b", name])
         .arg(&target)
-        .status()
+        .output()
         .context("failed to spawn `git worktree add`")?;
-    if !status.success() {
-        bail!("git worktree add failed (exit status {status})");
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!(
+            "git worktree add failed (exit status {}): {}",
+            output.status,
+            stderr.trim()
+        );
     }
     Ok(target)
 }

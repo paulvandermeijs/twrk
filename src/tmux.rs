@@ -97,14 +97,17 @@ pub fn session_exists(session: &str) -> bool {
 
 pub fn run(commands: &[Vec<String>]) -> Result<()> {
     for cmd in commands {
-        let status = Command::new("tmux")
+        let output = Command::new("tmux")
             .args(cmd)
-            .status()
+            .output()
             .with_context(|| format!("failed to spawn tmux {cmd:?}"))?;
-        if !status.success() {
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
             bail!(
-                "tmux {} failed (exit {status})",
-                cmd.first().map_or("", String::as_str)
+                "tmux {} failed (exit {}): {}",
+                cmd.first().map_or("", String::as_str),
+                output.status,
+                stderr.trim()
             );
         }
     }

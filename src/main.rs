@@ -16,19 +16,22 @@ use anyhow::{Context, Result};
 use clap::Parser;
 
 fn main() -> ExitCode {
-    match real_main() {
+    let args = cli::Args::parse();
+    let in_picker_mode = args.path.is_none();
+    match real_main(args, in_picker_mode) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("twrk: {e:#}");
+            if in_picker_mode {
+                let _ = cliclack::outro_cancel(format!("{e:#}"));
+            } else {
+                eprintln!("twrk: {e:#}");
+            }
             ExitCode::FAILURE
         }
     }
 }
 
-fn real_main() -> Result<()> {
-    let args = cli::Args::parse();
-
-    let in_picker_mode = args.path.is_none();
+fn real_main(args: cli::Args, in_picker_mode: bool) -> Result<()> {
     let project_dir = if let Some(p) = args.path.as_deref() {
         path::resolve(p)?
     } else {
