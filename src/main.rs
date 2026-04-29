@@ -31,14 +31,16 @@ fn main() -> ExitCode {
 
 fn real_main(args: cli::Args, in_picker_mode: bool) -> Result<()> {
     let project_dir = if let Some(p) = args.path.as_deref() {
-        let resolved = path::resolve(p)?;
-        prompts::show_project(&resolved);
-        resolved
+        path::resolve(p)?
     } else {
         let roots = workspace::roots()?;
         let projects = workspace::list_projects(&roots);
         picker::pick(&projects)?
     };
+
+    if !in_picker_mode {
+        prompts::show_project(&project_dir);
+    }
 
     let cfg = config::load_for(&project_dir)?;
 
