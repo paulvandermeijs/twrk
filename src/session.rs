@@ -1,20 +1,6 @@
-use rand::seq::IndexedRandom;
-
-const ADJECTIVES: &[&str] = &[
-    "brave", "calm", "eager", "fair", "gentle", "happy", "jolly", "kind", "lively", "merry",
-    "noble", "polite", "proud", "quiet", "royal", "swift",
-];
-const NOUNS: &[&str] = &[
-    "badger", "cat", "deer", "eagle", "fox", "goat", "hawk", "ibis", "jay", "koi", "lynx", "moth",
-    "newt", "owl", "panda", "quail",
-];
-
 #[must_use]
 pub fn random_name() -> String {
-    let mut rng = rand::rng();
-    let a = ADJECTIVES.choose(&mut rng).unwrap();
-    let n = NOUNS.choose(&mut rng).unwrap();
-    format!("{a}-{n}")
+    petname::petname(2, "-").expect("petname wordlist is non-empty")
 }
 
 #[must_use]
@@ -31,8 +17,9 @@ mod tests {
         for _ in 0..16 {
             let n = random_name();
             let (a, b) = n.split_once('-').expect("contains dash");
-            assert!(ADJECTIVES.contains(&a));
-            assert!(NOUNS.contains(&b));
+            assert!(!a.is_empty());
+            assert!(!b.is_empty());
+            assert!(!b.contains('-'));
         }
     }
 
