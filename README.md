@@ -4,6 +4,8 @@ Pronounced "twerk". The name is a portmanteau of tmux and workspace/worktree —
 
 Open a project from your workspace in a tmux session with a configurable layout, optionally in a fresh git worktree.
 
+`twrk` builds on [`wrk`](https://github.com/paulvandermeijs/wrk).
+
 ## Install
 
 ```bash
@@ -35,20 +37,20 @@ The top level of a twrk-file is a map of named config groups. Pick one with `-c 
 default:
   worktree: false
   layout:
-    - name: Project
+    - name: project
       content:
-        - { name: Shell, command: nu }
+        - { name: shell, command: nu }
 dev:
   worktree: true
   layout:
-    - name: Dev
+    - name: dev
       content:
-        - { name: Claude, command: claude -r }
-        - { name: Editor, command: hx }
-    - name: Server
+        - { name: claude, command: claude -r }
+        - { name: editor, command: hx }
+    - name: server
       content:
         - { command: npm run dev }
-    - name: Logs
+    - name: logs
       split: rows
       content:
         - { command: "tail -f /var/log/app.log" }
