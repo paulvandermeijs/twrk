@@ -17,15 +17,13 @@ use clap::Parser;
 
 fn main() -> ExitCode {
     let args = cli::Args::parse();
+    theme::install();
+    let _ = cliclack::intro(console::style(" twrk ").bold().black().on_color256(213));
     let in_picker_mode = args.path.is_none();
     match real_main(args, in_picker_mode) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            if in_picker_mode {
-                let _ = cliclack::outro_cancel(format!("{e:#}"));
-            } else {
-                eprintln!("twrk: {e:#}");
-            }
+            let _ = cliclack::outro_cancel(format!("{e:#}"));
             ExitCode::FAILURE
         }
     }
@@ -35,8 +33,6 @@ fn real_main(args: cli::Args, in_picker_mode: bool) -> Result<()> {
     let project_dir = if let Some(p) = args.path.as_deref() {
         path::resolve(p)?
     } else {
-        theme::install();
-        let _ = cliclack::intro(console::style(" twrk ").bold().black().on_color256(213));
         let roots = workspace::roots()?;
         let projects = workspace::list_projects(&roots);
         picker::pick(&projects)?
@@ -95,9 +91,7 @@ fn real_main(args: cli::Args, in_picker_mode: bool) -> Result<()> {
         None => folder_name.to_string(),
     };
 
-    if in_picker_mode {
-        let _ = cliclack::outro(format!("Launching {session_name}..."));
-    }
+    let _ = cliclack::outro(format!("Launching {session_name}..."));
 
     if !tmux::session_exists(&session_name) {
         let layout = config::resolve_layout(&cfg, &active_group);
