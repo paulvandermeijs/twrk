@@ -4,6 +4,7 @@ mod git;
 mod path;
 mod picker;
 mod session;
+mod theme;
 mod tmux;
 mod workspace;
 
@@ -29,6 +30,7 @@ fn real_main() -> Result<()> {
     let project_dir = if let Some(p) = args.path.as_deref() {
         path::resolve(p)?
     } else {
+        theme::install();
         let _ = cliclack::intro(console::style(" twrk ").bold().black().on_color256(213));
         let roots = workspace::roots()?;
         let projects = workspace::list_projects(&roots);
