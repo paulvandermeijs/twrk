@@ -31,7 +31,9 @@ fn main() -> ExitCode {
 
 fn real_main(args: cli::Args, in_picker_mode: bool) -> Result<()> {
     let project_dir = if let Some(p) = args.path.as_deref() {
-        path::resolve(p)?
+        let resolved = path::resolve(p)?;
+        prompts::show_project(&resolved);
+        resolved
     } else {
         let roots = workspace::roots()?;
         let projects = workspace::list_projects(&roots);
@@ -55,6 +57,10 @@ fn real_main(args: cli::Args, in_picker_mode: bool) -> Result<()> {
     };
     let active_group =
         prompts::resolve_group_name(args.config.as_deref(), picked_group.as_deref());
+
+    if !in_picker_mode {
+        prompts::show_config(&active_group);
+    }
 
     let (want_worktree, name_override) = match args.worktree.as_deref() {
         Some("") => (true, None),
@@ -81,6 +87,10 @@ fn real_main(args: cli::Args, in_picker_mode: bool) -> Result<()> {
         } else {
             (project_dir.clone(), None, project_dir.clone())
         };
+
+    if !in_picker_mode {
+        prompts::show_worktree(worktree_name.as_deref());
+    }
 
     let folder_name = folder_source
         .file_name()
