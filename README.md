@@ -9,6 +9,12 @@ Open a project from your workspace in a tmux session with a configurable layout,
 ## Install
 
 ```bash
+cargo install twrk
+```
+
+Or from a local checkout:
+
+```bash
 cargo install --path .
 ```
 
