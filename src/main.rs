@@ -92,6 +92,10 @@ fn real_main() -> Result<()> {
         None => folder_name.to_string(),
     };
 
+    if in_picker_mode {
+        let _ = cliclack::outro(format!("Launching {session_name}"));
+    }
+
     if !tmux::session_exists(&session_name) {
         let layout = config::resolve_layout(&cfg, &active_group);
         let cmds = tmux::build_commands(&session_name, &session_cwd, &layout);
