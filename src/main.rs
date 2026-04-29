@@ -26,11 +26,10 @@ fn main() -> ExitCode {
 fn real_main() -> Result<()> {
     let args = cli::Args::parse();
 
-    let _ = cliclack::intro(console::style(" twrk ").bold().black().on_color256(213));
-
     let project_dir = if let Some(p) = args.path.as_deref() {
         path::resolve(p)?
     } else {
+        let _ = cliclack::intro(console::style(" twrk ").bold().black().on_color256(213));
         let roots = workspace::roots()?;
         let projects = workspace::list_projects(&roots);
         picker::pick(&projects)?
