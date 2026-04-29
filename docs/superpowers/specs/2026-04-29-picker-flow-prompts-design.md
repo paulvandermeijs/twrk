@@ -1,8 +1,8 @@
-# Picker-flow prompts: layout and worktree
+# Picker-flow prompts: config and worktree
 
 ## Goal
 
-Extend the interactive picker flow so that, after selecting a project, the user can also select which config group (layout) to use, whether to create a git worktree, and what to name it. Today the equivalent decisions are only reachable via the `-c` and `-w` CLI flags.
+Extend the interactive picker flow so that, after selecting a project, the user can also select which config group to use, whether to create a git worktree, and what to name it. Today the equivalent decisions are only reachable via the `-c` and `-w` CLI flags.
 
 ## Scope
 
@@ -13,7 +13,7 @@ Extend the interactive picker flow so that, after selecting a project, the user 
 
 1. **Project picker** — unchanged.
 2. **Load config** for the selected project — unchanged.
-3. **Layout picker** — new. Shown when:
+3. **Config picker** — new. Shown when:
    - `-c` was **not** passed on the command line, **and**
    - The merged config contains 2 or more groups.
 
@@ -37,13 +37,13 @@ When any of the new prompts is skipped, the value used is whatever the existing 
 
 - `cli::Args::config` becomes `Option<String>` with no clap default.
   - When `Some(name)`, behavior is identical to today's `-c name`.
-  - When `None`, picker mode runs the layout prompt (if multi-group); path mode and single-group picker mode fall back to the literal string `"default"`.
+  - When `None`, picker mode runs the config prompt (if multi-group); path mode and single-group picker mode fall back to the literal string `"default"`.
 - `cli::Args::worktree` is unchanged — it already distinguishes `None` (not passed) from `Some("")` (passed with no value) from `Some(name)`.
 
 ## Code organisation
 
 - A new module `prompts.rs` holds the two new interactive prompts:
-  - `pick_layout(group_names: &[String]) -> Result<String>`
+  - `pick_config(group_names: &[String]) -> Result<String>`
   - `pick_worktree(default: bool, placeholder_name: &str) -> Result<Option<String>>` — returns `None` if the user picks "no worktree", `Some(name)` if yes (where `name` is either the typed value or the placeholder when the user submitted empty).
 
   These functions wrap `cliclack::select` / `cliclack::confirm` / `cliclack::input` calls. They are not unit-tested directly because `cliclack` interactive prompts don't unit-test cleanly.
@@ -58,8 +58,8 @@ When any of the new prompts is skipped, the value used is whatever the existing 
 
 ## Edge cases
 
-- **No config file at all.** `config::load_for` returns an empty map. The layout prompt is skipped (zero groups < 2). The active group name is `"default"`, which falls through to the existing fallback layout. The worktree confirm still runs if the project is a git repo, defaulting to `false`.
-- **Config has exactly one group.** Layout prompt is skipped; that single group becomes the active group regardless of its name.
+- **No config file at all.** `config::load_for` returns an empty map. The config prompt is skipped (zero groups < 2). The active group name is `"default"`, which falls through to the existing fallback layout. The worktree confirm still runs if the project is a git repo, defaulting to `false`.
+- **Config has exactly one group.** Config prompt is skipped; that single group becomes the active group regardless of its name.
 - **Active group's `worktree` is unset.** Toggle default is `false`.
 - **User submits empty worktree name.** Random name (the placeholder) is used.
 - **Project is not a git repo.** Worktree prompts are skipped entirely; behavior matches today.
