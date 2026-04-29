@@ -22,6 +22,7 @@ pub fn pick_worktree(default: bool, placeholder_name: &str) -> Result<Option<Str
     }
     let typed = cliclack::input("Worktree name")
         .placeholder(placeholder_name)
+        .required(false)
         .interact::<String>()
         .context("worktree name input cancelled")?;
     if typed.trim().is_empty() {

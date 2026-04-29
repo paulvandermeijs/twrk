@@ -41,9 +41,13 @@ fn real_main() -> Result<()> {
 
     let cfg = config::load_for(&project_dir)?;
 
-    let picked_group = if in_picker_mode && args.config.is_none() && cfg.len() >= 2 {
+    let picked_group = if in_picker_mode && args.config.is_none() {
         let names: Vec<String> = cfg.keys().cloned().collect();
-        Some(prompts::pick_config(&names)?)
+        match names.len() {
+            0 => None,
+            1 => Some(names.into_iter().next().unwrap()),
+            _ => Some(prompts::pick_config(&names)?),
+        }
     } else {
         None
     };
