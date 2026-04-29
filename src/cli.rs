@@ -11,8 +11,8 @@ pub struct Args {
     pub worktree: Option<String>,
 
     /// Config group id from the config file
-    #[arg(short = 'c', long, default_value = "default")]
-    pub config: String,
+    #[arg(short = 'c', long)]
+    pub config: Option<String>,
 }
 
 #[cfg(test)]
@@ -24,7 +24,7 @@ mod tests {
     fn parses_path_only() {
         let a = Args::try_parse_from(["twrk", "."]).unwrap();
         assert_eq!(a.path.as_deref(), Some("."));
-        assert_eq!(a.config, "default");
+        assert_eq!(a.config, None);
         assert_eq!(a.worktree, None);
     }
 
@@ -44,7 +44,7 @@ mod tests {
     fn parses_full_form() {
         let a = Args::try_parse_from(["twrk", ".", "-c", "dev", "-w", "feat"]).unwrap();
         assert_eq!(a.path.as_deref(), Some("."));
-        assert_eq!(a.config, "dev");
+        assert_eq!(a.config.as_deref(), Some("dev"));
         assert_eq!(a.worktree.as_deref(), Some("feat"));
     }
 }

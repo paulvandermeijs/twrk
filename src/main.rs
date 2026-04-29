@@ -3,6 +3,7 @@ mod config;
 mod git;
 mod path;
 mod picker;
+mod prompts;
 mod session;
 mod theme;
 mod tmux;
@@ -27,6 +28,7 @@ fn main() -> ExitCode {
 fn real_main() -> Result<()> {
     let args = cli::Args::parse();
 
+    let in_picker_mode = args.path.is_none();
     let project_dir = if let Some(p) = args.path.as_deref() {
         path::resolve(p)?
     } else {
@@ -38,13 +40,31 @@ fn real_main() -> Result<()> {
     };
 
     let cfg = config::load_for(&project_dir)?;
+
+    let picked_group = if in_picker_mode && args.config.is_none() && cfg.len() >= 2 {
+        let names: Vec<String> = cfg.keys().cloned().collect();
+        Some(prompts::pick_config(&names)?)
+    } else {
+        None
+    };
+    let active_group =
+        prompts::resolve_group_name(args.config.as_deref(), picked_group.as_deref());
+
     let (want_worktree, name_override) = match args.worktree.as_deref() {
         Some("") => (true, None),
         Some(name) => (true, Some(name.to_string())),
-        None => (
-            config::group_worktree(&cfg, &args.config).unwrap_or(false),
-            None,
-        ),
+        None => {
+            let group_default = config::group_worktree(&cfg, &active_group).unwrap_or(false);
+            if in_picker_mode && git::repo_root(&project_dir).is_some() {
+                let random = session::random_name();
+                match prompts::pick_worktree(group_default, &random)? {
+                    None => (false, None),
+                    Some(name) => (true, Some(name)),
+                }
+            } else {
+                (group_default, None)
+            }
+        }
     };
 
     let (session_cwd, worktree_name, folder_source): (PathBuf, Option<String>, PathBuf) =
@@ -66,7 +86,7 @@ fn real_main() -> Result<()> {
     };
 
     if !tmux::session_exists(&session_name) {
-        let layout = config::resolve_layout(&cfg, &args.config);
+        let layout = config::resolve_layout(&cfg, &active_group);
         let cmds = tmux::build_commands(&session_name, &session_cwd, &layout);
         tmux::run(&cmds)?;
     }
