@@ -9,6 +9,7 @@ mod theme;
 mod tmux;
 mod workspace;
 
+use std::io;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -25,12 +26,13 @@ fn main() -> ExitCode {
     }
     match real_main(args, in_picker_mode, is_tty) {
         Ok(()) => ExitCode::SUCCESS,
+        Err(e) if is_prompt_interrupt(&e) => ExitCode::FAILURE,
+        Err(e) if is_tty => {
+            let _ = cliclack::outro_cancel(format!("{e:#}"));
+            ExitCode::FAILURE
+        }
         Err(e) => {
-            if is_tty {
-                let _ = cliclack::outro_cancel(format!("{e:#}"));
-            } else {
-                eprintln!("twrk: {e:#}");
-            }
+            eprintln!("twrk: {e:#}");
             ExitCode::FAILURE
         }
     }
@@ -120,4 +122,12 @@ fn real_main(args: cli::Args, in_picker_mode: bool, is_tty: bool) -> Result<()> 
         tmux::run(&cmds)?;
     }
     tmux::attach_or_switch(&session_name)
+}
+
+fn is_prompt_interrupt(e: &anyhow::Error) -> bool {
+    e.chain().any(|cause| {
+        cause
+            .downcast_ref::<io::Error>()
+            .is_some_and(|io_err| io_err.kind() == io::ErrorKind::Interrupted)
+    })
 }
