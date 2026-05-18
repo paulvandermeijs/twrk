@@ -13,8 +13,16 @@ pub fn build_commands(session: &str, cwd: &Path, layout: &Layout) -> Vec<Vec<Str
 
     for (idx, window) in layout.iter().enumerate() {
         let win_name = window.name.as_deref().unwrap();
-        if idx == 0 {
-            cmds.push(vec![
+        let first_pane = window.content.first().map(|e| {
+            let Element::Pane(p) = e;
+            p
+        });
+        let first_cmd = first_pane
+            .map(|p| p.command.as_str())
+            .filter(|c| !c.is_empty());
+
+        let mut create = if idx == 0 {
+            vec![
                 "new-session".into(),
                 "-d".into(),
                 "-s".into(),
@@ -23,9 +31,9 @@ pub fn build_commands(session: &str, cwd: &Path, layout: &Layout) -> Vec<Vec<Str
                 win_name.into(),
                 "-c".into(),
                 cwd_s.clone(),
-            ]);
+            ]
         } else {
-            cmds.push(vec![
+            vec![
                 "new-window".into(),
                 "-t".into(),
                 format!("{session}:"),
@@ -33,21 +41,39 @@ pub fn build_commands(session: &str, cwd: &Path, layout: &Layout) -> Vec<Vec<Str
                 win_name.into(),
                 "-c".into(),
                 cwd_s.clone(),
+            ]
+        };
+        if let Some(cmd) = first_cmd {
+            create.push(cmd.into());
+        }
+        cmds.push(create);
+
+        if let Some(pane) = first_pane
+            && let Some(name) = &pane.name
+        {
+            cmds.push(vec![
+                "select-pane".into(),
+                "-t".into(),
+                format!("{session}:{win_name}"),
+                "-T".into(),
+                name.clone(),
             ]);
         }
 
-        for (pane_idx, element) in window.content.iter().enumerate() {
+        for element in window.content.iter().skip(1) {
             let Element::Pane(pane) = element;
-            if pane_idx > 0 {
-                cmds.push(vec![
-                    "split-window".into(),
-                    split_flag(window.split).into(),
-                    "-t".into(),
-                    format!("{session}:{win_name}"),
-                    "-c".into(),
-                    cwd_s.clone(),
-                ]);
+            let mut split = vec![
+                "split-window".into(),
+                split_flag(window.split).into(),
+                "-t".into(),
+                format!("{session}:{win_name}"),
+                "-c".into(),
+                cwd_s.clone(),
+            ];
+            if !pane.command.is_empty() {
+                split.push(pane.command.clone());
             }
+            cmds.push(split);
             if let Some(name) = &pane.name {
                 cmds.push(vec![
                     "select-pane".into(),
@@ -57,13 +83,6 @@ pub fn build_commands(session: &str, cwd: &Path, layout: &Layout) -> Vec<Vec<Str
                     name.clone(),
                 ]);
             }
-            cmds.push(vec![
-                "send-keys".into(),
-                "-t".into(),
-                format!("{session}:{win_name}"),
-                pane.command.clone(),
-                "Enter".into(),
-            ]);
         }
 
         cmds.push(vec![
