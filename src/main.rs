@@ -118,7 +118,11 @@ fn real_main(args: cli::Args, in_picker_mode: bool, is_tty: bool) -> Result<()> 
 
     if !tmux::session_exists(&session_name) {
         let layout = config::resolve_layout(&cfg, &active_group);
-        let cmds = tmux::build_commands(&session_name, &session_cwd, &layout, &[]);
+        let mut env: Vec<(&str, &str)> = vec![("TWRK_CONFIG", active_group.as_str())];
+        if worktree_name.is_some() {
+            env.push(("TWRK_WORKTREE", "1"));
+        }
+        let cmds = tmux::build_commands(&session_name, &session_cwd, &layout, &env);
         tmux::run(&cmds)?;
     }
     tmux::attach_or_switch(&session_name)
