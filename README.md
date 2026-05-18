@@ -62,4 +62,15 @@ dev:
         - { command: "tail -f /var/log/app.log" }
 ```
 
+## Session env vars
+
+Every tmux session twrk creates has these variables set, available to every pane process:
+
+- `TWRK_CONFIG` — the resolved config group name (e.g. `default`, `dev`).
+- `TWRK_WORKTREE` — `1` when the session opened in a git worktree, unset otherwise.
+
+This lets you re-invoke twrk from inside an existing session and re-use the same config — handy for spinning up a worktree session that mirrors the parent:
+
+    twrk . --worktree --config="$TWRK_CONFIG"
+
 Happy twrk-ing!
