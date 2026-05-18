@@ -71,6 +71,8 @@ Every tmux session twrk creates has these variables set, available to every pane
 
 This lets you re-invoke twrk from inside an existing session and re-use the same config — handy for spinning up a worktree session that mirrors the parent:
 
-    twrk . --worktree --config="$TWRK_CONFIG"
+```bash
+twrk . --worktree --config="$TWRK_CONFIG"
+```
 
 Happy twrk-ing!
