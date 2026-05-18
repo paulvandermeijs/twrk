@@ -6,7 +6,12 @@ use anyhow::{Context, Result, bail};
 use crate::config::{Element, Layout, Split, Window};
 
 #[must_use]
-pub fn build_commands(session: &str, cwd: &Path, layout: &Layout) -> Vec<Vec<String>> {
+pub fn build_commands(
+    session: &str,
+    cwd: &Path,
+    layout: &Layout,
+    env: &[(&str, &str)],
+) -> Vec<Vec<String>> {
     let mut cmds: Vec<Vec<String>> = Vec::new();
     let cwd_s = cwd.display().to_string();
     let layout = ensure_named_windows(layout);
@@ -43,6 +48,7 @@ pub fn build_commands(session: &str, cwd: &Path, layout: &Layout) -> Vec<Vec<Str
                 cwd_s.clone(),
             ]
         };
+        push_env(&mut create, env);
         if let Some(cmd) = first_cmd {
             create.push(cmd.into());
         }
@@ -70,6 +76,7 @@ pub fn build_commands(session: &str, cwd: &Path, layout: &Layout) -> Vec<Vec<Str
                 "-c".into(),
                 cwd_s.clone(),
             ];
+            push_env(&mut split, env);
             if !pane.command.is_empty() {
                 split.push(pane.command.clone());
             }
@@ -172,6 +179,13 @@ fn ensure_named_windows(layout: &Layout) -> Vec<Window> {
         .collect()
 }
 
+fn push_env(args: &mut Vec<String>, env: &[(&str, &str)]) {
+    for (key, value) in env {
+        args.push("-e".into());
+        args.push(format!("{key}={value}"));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,7 +216,7 @@ mod tests {
 
     #[test]
     fn first_window_uses_new_session() {
-        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows());
+        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows(), &[]);
         assert_eq!(cmds[0][0], "new-session");
         assert!(cmds[0].contains(&"-s".into()));
         assert!(cmds[0].contains(&"s".into()));
@@ -212,7 +226,7 @@ mod tests {
 
     #[test]
     fn second_pane_in_first_window_uses_horizontal_split() {
-        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows());
+        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows(), &[]);
         let split = cmds.iter().find(|c| c[0] == "split-window").unwrap();
         assert!(split.contains(&"-h".into()));
         assert!(split.contains(&"s:Dev".into()));
@@ -220,7 +234,7 @@ mod tests {
 
     #[test]
     fn rows_window_uses_vertical_split() {
-        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows());
+        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows(), &[]);
         let splits: Vec<_> = cmds.iter().filter(|c| c[0] == "split-window").collect();
         assert_eq!(splits.len(), 2);
         assert!(splits[1].contains(&"-v".into()));
@@ -229,7 +243,7 @@ mod tests {
 
     #[test]
     fn second_window_uses_new_window() {
-        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows());
+        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows(), &[]);
         let nw = cmds.iter().find(|c| c[0] == "new-window").unwrap();
         assert!(nw.contains(&"Logs".into()));
         assert!(nw.contains(&"s:".into()));
@@ -242,13 +256,13 @@ mod tests {
             split: Split::Cols,
             content: vec![pane(None, "ls")],
         }];
-        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout);
+        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout, &[]);
         assert!(cmds[0].contains(&"win1".into()));
     }
 
     #[test]
     fn final_select_window_targets_first() {
-        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows());
+        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows(), &[]);
         let last = cmds.last().unwrap();
         assert_eq!(last[0], "select-window");
         assert!(last.contains(&"s:Dev".into()));
@@ -256,12 +270,75 @@ mod tests {
 
     #[test]
     fn pane_title_set_when_named() {
-        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows());
+        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows(), &[]);
         let titles: Vec<_> = cmds
             .iter()
             .filter(|c| c[0] == "select-pane" && c.contains(&"-T".into()))
             .collect();
         assert!(titles.iter().any(|c| c.contains(&"Claude".into())));
         assert!(titles.iter().any(|c| c.contains(&"Editor".into())));
+    }
+
+    #[test]
+    fn env_vars_are_added_to_new_session() {
+        let env = [("TWRK_CONFIG", "dev"), ("TWRK_WORKTREE", "1")];
+        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows(), &env);
+        let ns = &cmds[0];
+        assert_eq!(ns[0], "new-session");
+        let pairs: Vec<&String> = ns
+            .windows(2)
+            .filter(|w| w[0] == "-e")
+            .map(|w| &w[1])
+            .collect();
+        assert!(pairs.iter().any(|p| p.as_str() == "TWRK_CONFIG=dev"));
+        assert!(pairs.iter().any(|p| p.as_str() == "TWRK_WORKTREE=1"));
+    }
+
+    #[test]
+    fn env_vars_are_added_to_new_window() {
+        let env = [("TWRK_CONFIG", "dev")];
+        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows(), &env);
+        let nw = cmds.iter().find(|c| c[0] == "new-window").unwrap();
+        let pairs: Vec<&String> = nw
+            .windows(2)
+            .filter(|w| w[0] == "-e")
+            .map(|w| &w[1])
+            .collect();
+        assert!(pairs.iter().any(|p| p.as_str() == "TWRK_CONFIG=dev"));
+    }
+
+    #[test]
+    fn env_vars_are_added_to_split_window() {
+        let env = [("TWRK_CONFIG", "dev")];
+        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows(), &env);
+        let sw = cmds.iter().find(|c| c[0] == "split-window").unwrap();
+        let pairs: Vec<&String> = sw
+            .windows(2)
+            .filter(|w| w[0] == "-e")
+            .map(|w| &w[1])
+            .collect();
+        assert!(pairs.iter().any(|p| p.as_str() == "TWRK_CONFIG=dev"));
+    }
+
+    #[test]
+    fn env_var_precedes_trailing_shell_command() {
+        let env = [("TWRK_CONFIG", "dev")];
+        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows(), &env);
+        let ns = &cmds[0];
+        let last = ns.last().unwrap();
+        assert_eq!(last, "claude");
+        let last_e = ns.iter().rposition(|s| s == "-e").unwrap();
+        assert!(last_e < ns.len() - 2);
+    }
+
+    #[test]
+    fn no_env_means_no_dash_e_flags() {
+        let cmds = build_commands("s", &PathBuf::from("/tmp"), &layout_two_windows(), &[]);
+        for cmd in &cmds {
+            assert!(
+                !cmd.iter().any(|s| s == "-e"),
+                "unexpected -e in {cmd:?}"
+            );
+        }
     }
 }
