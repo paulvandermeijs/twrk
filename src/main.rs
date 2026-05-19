@@ -5,6 +5,7 @@ mod path;
 mod picker;
 mod prompts;
 mod session;
+mod setup;
 mod theme;
 mod tmux;
 mod workspace;
