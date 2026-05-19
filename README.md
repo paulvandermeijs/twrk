@@ -62,6 +62,31 @@ dev:
         - { command: "tail -f /var/log/app.log" }
 ```
 
+## Worktree setup
+
+A config group can declare a `setup` list — shell commands that run automatically after twrk creates a fresh worktree, before the tmux session starts. Re-attaching to an existing worktree does **not** re-run setup.
+
+Commands run sequentially via `sh -c` with the new worktree as the working directory. They inherit twrk's stdio so you see output live. The first non-zero exit aborts; no tmux session is created.
+
+```yaml
+dev:
+  worktree: true
+  setup:
+    - cp ../.env .env
+    - bun install
+  layout:
+    - name: dev
+      content:
+        - { command: bun run dev }
+```
+
+The setup commands see these env vars:
+
+- `TWRK_CONFIG` — the resolved config group name.
+- `TWRK_WORKTREE` — always `1` while setup runs.
+- `TWRK_WORKTREE_NAME` — the worktree's name (the segment after `.worktrees/`).
+- `TWRK_REPO_ROOT` — absolute path to the source repo, useful when `..` isn't enough.
+
 ## Session env vars
 
 Every tmux session twrk creates has these variables set, available to every pane process:
