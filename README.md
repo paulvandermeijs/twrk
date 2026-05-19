@@ -82,9 +82,9 @@ dev:
 
 The setup commands see these env vars:
 
-- `TWRK_CONFIG` — the resolved config group name.
-- `TWRK_WORKTREE` — always `1` while setup runs.
-- `TWRK_WORKTREE_NAME` — the worktree's name (the segment after `.worktrees/`).
+- `TWRK_CONFIG` — the resolved config group name (e.g. `default`, `dev`).
+- `TWRK_WORKTREE` — always `1` (setup only runs when a worktree is involved).
+- `TWRK_WORKTREE_NAME` — the worktree name (as passed to `-w`, or the auto-generated random one).
 - `TWRK_REPO_ROOT` — absolute path to the source repo, useful when `..` isn't enough.
 
 ## Session env vars
