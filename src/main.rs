@@ -94,7 +94,20 @@ fn real_main(args: cli::Args, in_picker_mode: bool, is_tty: bool) -> Result<()> 
     let (session_cwd, worktree_name, folder_source): (PathBuf, Option<String>, PathBuf) =
         if want_worktree && let Some(root) = git::repo_root(&project_dir) {
             let name = name_override.unwrap_or_else(session::random_name);
-            let (path, _created) = git::ensure_worktree(&root, &name)?;
+            let (path, created) = git::ensure_worktree(&root, &name)?;
+            if created
+                && let Some(cmds) = config::group_setup(&cfg, &active_group)
+                && !cmds.is_empty()
+            {
+                let root_s = root.display().to_string();
+                let setup_env: Vec<(&str, &str)> = vec![
+                    ("TWRK_CONFIG", active_group.as_str()),
+                    ("TWRK_WORKTREE", "1"),
+                    ("TWRK_WORKTREE_NAME", name.as_str()),
+                    ("TWRK_REPO_ROOT", root_s.as_str()),
+                ];
+                setup::run(&path, &setup_env, cmds)?;
+            }
             (path, Some(name), root)
         } else {
             (project_dir.clone(), None, project_dir.clone())
