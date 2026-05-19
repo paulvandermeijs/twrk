@@ -20,10 +20,10 @@ pub fn repo_root(path: &Path) -> Option<PathBuf> {
     common_dir.parent().map(Path::to_path_buf)
 }
 
-pub fn ensure_worktree(repo_root: &Path, name: &str) -> Result<PathBuf> {
+pub fn ensure_worktree(repo_root: &Path, name: &str) -> Result<(PathBuf, bool)> {
     let target = repo_root.join(".worktrees").join(name);
     if target.is_dir() {
-        return Ok(target);
+        return Ok((target, false));
     }
     std::fs::create_dir_all(target.parent().unwrap())
         .with_context(|| format!("could not create {}", target.parent().unwrap().display()))?;
@@ -42,7 +42,7 @@ pub fn ensure_worktree(repo_root: &Path, name: &str) -> Result<PathBuf> {
             stderr.trim()
         );
     }
-    Ok(target)
+    Ok((target, true))
 }
 
 #[cfg(test)]
@@ -104,7 +104,7 @@ mod tests {
     fn repo_root_returns_main_repo_from_inside_a_worktree() {
         let dir = tempdir().unwrap();
         init_repo(dir.path());
-        let wt = ensure_worktree(dir.path(), "feat-y").unwrap();
+        let (wt, _) = ensure_worktree(dir.path(), "feat-y").unwrap();
         let root = repo_root(&wt).expect("repo_root should resolve from inside a worktree");
         assert_eq!(
             root.canonicalize().unwrap(),
@@ -113,12 +113,14 @@ mod tests {
     }
 
     #[test]
-    fn ensure_worktree_creates_and_is_idempotent() {
+    fn ensure_worktree_reports_created_then_not_created() {
         let dir = tempdir().unwrap();
         init_repo(dir.path());
-        let p1 = ensure_worktree(dir.path(), "feat-x").unwrap();
+        let (p1, created1) = ensure_worktree(dir.path(), "feat-x").unwrap();
         assert!(p1.is_dir());
-        let p2 = ensure_worktree(dir.path(), "feat-x").unwrap();
+        assert!(created1, "first call should report created=true");
+        let (p2, created2) = ensure_worktree(dir.path(), "feat-x").unwrap();
         assert_eq!(p1, p2);
+        assert!(!created2, "second call should report created=false");
     }
 }

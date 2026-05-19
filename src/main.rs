@@ -93,7 +93,7 @@ fn real_main(args: cli::Args, in_picker_mode: bool, is_tty: bool) -> Result<()> 
     let (session_cwd, worktree_name, folder_source): (PathBuf, Option<String>, PathBuf) =
         if want_worktree && let Some(root) = git::repo_root(&project_dir) {
             let name = name_override.unwrap_or_else(session::random_name);
-            let path = git::ensure_worktree(&root, &name)?;
+            let (path, _created) = git::ensure_worktree(&root, &name)?;
             (path, Some(name), root)
         } else {
             (project_dir.clone(), None, project_dir.clone())
