@@ -381,12 +381,12 @@ dev:
 
     #[test]
     fn parses_setup_from_yaml() {
-        let yaml = r#"
+        let yaml = r"
 default:
   setup:
     - cp ../.env .env
     - bun install
-"#;
+";
         let cfg: Config = serde_yml::from_str(yaml).unwrap();
         let group = &cfg["default"];
         let expected = vec!["cp ../.env .env".to_string(), "bun install".to_string()];
