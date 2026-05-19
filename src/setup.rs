@@ -20,7 +20,7 @@ pub fn run(workdir: &Path, env: &[(&str, &str)], commands: &[String]) -> Result<
             .status()
             .with_context(|| format!("failed to spawn setup command: {cmd}"))?;
         if !status.success() {
-            bail!("setup command failed (exit {}): {cmd}", status);
+            bail!("setup command failed ({status}): {cmd}");
         }
     }
     Ok(())
