@@ -11,6 +11,8 @@ pub type Config = BTreeMap<String, Group>;
 pub struct Group {
     pub worktree: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub setup: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub layout: Option<Layout>,
 }
 
@@ -96,6 +98,11 @@ pub fn resolve_layout(cfg: &Config, id: &str) -> Layout {
 #[must_use]
 pub fn group_worktree(cfg: &Config, id: &str) -> Option<bool> {
     cfg.get(id).and_then(|g| g.worktree)
+}
+
+#[must_use]
+pub fn group_setup<'a>(cfg: &'a Config, id: &str) -> Option<&'a [String]> {
+    cfg.get(id).and_then(|g| g.setup.as_deref())
 }
 
 fn fallback_layout() -> Layout {
@@ -195,6 +202,7 @@ dev:
             "default".into(),
             Group {
                 worktree: Some(false),
+                setup: None,
                 layout: Some(vec![Window {
                     name: Some("Project".into()),
                     split: Split::Cols,
@@ -206,6 +214,7 @@ dev:
             "dev".into(),
             Group {
                 worktree: Some(true),
+                setup: None,
                 layout: Some(vec![
                     Window {
                         name: Some("Dev".into()),
@@ -368,5 +377,59 @@ dev:
         assert_eq!(group_worktree(&cfg, "default"), Some(false));
         assert_eq!(group_worktree(&cfg, "dev"), Some(true));
         assert_eq!(group_worktree(&cfg, "missing"), None);
+    }
+
+    #[test]
+    fn parses_setup_from_yaml() {
+        let yaml = r#"
+default:
+  setup:
+    - cp ../.env .env
+    - bun install
+"#;
+        let cfg: Config = serde_yml::from_str(yaml).unwrap();
+        let group = &cfg["default"];
+        let expected = vec!["cp ../.env .env".to_string(), "bun install".to_string()];
+        assert_eq!(group.setup.as_deref(), Some(expected.as_slice()));
+    }
+
+    #[test]
+    fn parses_setup_missing_as_none() {
+        let yaml = "default:\n  worktree: true\n";
+        let cfg: Config = serde_yml::from_str(yaml).unwrap();
+        assert!(cfg["default"].setup.is_none());
+    }
+
+    #[test]
+    fn parses_setup_empty_array() {
+        let yaml = "default:\n  setup: []\n";
+        let cfg: Config = serde_yml::from_str(yaml).unwrap();
+        let empty: Vec<String> = Vec::new();
+        assert_eq!(cfg["default"].setup.as_deref(), Some(empty.as_slice()));
+    }
+
+    #[test]
+    fn group_setup_returns_value_or_none() {
+        let mut cfg = Config::new();
+        cfg.insert(
+            "with".into(),
+            Group {
+                worktree: None,
+                setup: Some(vec!["echo hi".into()]),
+                layout: None,
+            },
+        );
+        cfg.insert(
+            "without".into(),
+            Group {
+                worktree: None,
+                setup: None,
+                layout: None,
+            },
+        );
+        let expected = vec!["echo hi".to_string()];
+        assert_eq!(group_setup(&cfg, "with"), Some(expected.as_slice()));
+        assert_eq!(group_setup(&cfg, "without"), None);
+        assert_eq!(group_setup(&cfg, "missing"), None);
     }
 }
