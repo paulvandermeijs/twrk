@@ -1,6 +1,6 @@
 [package]
 name = "twrk"
-version = "1.2.0"
+version = "1.3.0"
 edition = "2024"
 rust-version = "1.88"
 description = "Open a project from your workspace in a tmux session with a configurable layout, optionally in a fresh git worktree."
